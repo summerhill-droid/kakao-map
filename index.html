@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>SmombieAlert Map</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    #map { width: 100%; height: 100vh; }
+    .user-dot {
+      width: 18px; height: 18px;
+      background: #4A90E2;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    }
+    .cw-pin {
+      width: 13px; height: 13px;
+      border: 2.5px solid rgba(255,255,255,0.9);
+      border-radius: 50%;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+    }
+  </style>
+  <script type="text/javascript"
+    src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f24b3e12e3246e647e222f62c534115a&autoload=false">
+  </script>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    kakao.maps.load(function () {
+      var map = new kakao.maps.Map(document.getElementById('map'), {
+        center: new kakao.maps.LatLng(37.5665, 126.9780),
+        level: 4
+      });
+
+      var userOverlay = null, userCircle = null;
+      var cwOverlays = [], cwCircles = [];
+
+      // Signal React Native that the map is ready
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
+      }
+
+      // Called by React Native: moves the blue user dot
+      window.updateLocation = function (lat, lng, boostColor) {
+        var pos = new kakao.maps.LatLng(lat, lng);
+        if (userOverlay) userOverlay.setMap(null);
+        userOverlay = new kakao.maps.CustomOverlay({
+          position: pos,
+          content: '<div class="user-dot"></div>',
+          yAnchor: 0.5, xAnchor: 0.5, zIndex: 10
+        });
+        userOverlay.setMap(map);
+
+        if (userCircle) userCircle.setMap(null);
+        userCircle = new kakao.maps.Circle({
+          center: pos, radius: 30,
+          strokeWeight: 2, strokeColor: boostColor, strokeOpacity: 0.55,
+          fillColor: boostColor, fillOpacity: 0.12
+        });
+        userCircle.setMap(map);
+      };
+
+      // Called by React Native: pans to given coords
+      window.centerMap = function (lat, lng) {
+        map.panTo(new kakao.maps.LatLng(lat, lng));
+      };
+
+      // Called by React Native: renders crosswalk overlays
+      window.updateCrosswalks = function (crosswalks) {
+        cwOverlays.forEach(function (o) { o.setMap(null); });
+        cwCircles.forEach(function (c) { c.setMap(null); });
+        cwOverlays = []; cwCircles = [];
+
+        var RC = { danger: '#E84545', caution: '#F39C12', low: '#1ABC9C' };
+        var RR = { danger: 25, caution: 15, low: 10 };
+        var RW = { danger: 2.5, caution: 1.5, low: 1.5 };
+
+        crosswalks.forEach(function (cw, i) {
+          var pos = new kakao.maps.LatLng(cw.lat, cw.lng);
+          var col = RC[cw.riskLevel] || '#888';
+          var rad = RR[cw.riskLevel] || 10;
+          var sw  = RW[cw.riskLevel] || 1.5;
+
+          var circle = new kakao.maps.Circle({
+            center: pos, radius: rad,
+            strokeWeight: sw, strokeColor: col, strokeOpacity: 0.75,
+            fillColor: col, fillOpacity: 0.22
+          });
+          circle.setMap(map);
+          cwCircles.push(circle);
+
+          if (i < 12) {
+            var o = new kakao.maps.CustomOverlay({
+              position: pos,
+              content: '<div class="cw-pin" style="background:' + col + '"></div>',
+              yAnchor: 0.5, xAnchor: 0.5, zIndex: 5
+            });
+            o.setMap(map);
+            cwOverlays.push(o);
+          }
+        });
+      };
+    }); // end kakao.maps.load
+  </script>
+</body>
+</html>
